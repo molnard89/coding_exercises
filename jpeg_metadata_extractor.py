@@ -22,12 +22,12 @@ print('The input folder is: \t{}'.format(input_dir))
 print('The output folder is: \t{}'.format(output_dir))
 print()
 
-'''
-TODO: search only for jpegs. could be done with glob
-'''
+ext = 'jpeg'
 
-jpeg_list = []
+file_list = []
 for root, directories, files in os.walk(input_dir):
     for name in files:
-        jpeg_list.append(os.path.join(root, name))
-print(jpeg_list) 
+        full_name = os.path.join(root, name)
+        if ext in full_name:
+            file_list.append(full_name)
+print(file_list) 
