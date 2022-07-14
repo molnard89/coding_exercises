@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 import os
 import sys
+import glob
 
 parser = ArgumentParser(description="""Loop over subdirectories and 
                         jpeg files within to extract metadata and 
@@ -17,5 +18,16 @@ args = parser.parse_args()
 input_dir = args.input
 output_dir = args.output
 
-print('Input folder is: {}'.format(input_dir))
-print('Output folder is {}'.format(output_dir))
+print('The input folder is: \t{}'.format(input_dir))
+print('The output folder is: \t{}'.format(output_dir))
+print()
+
+'''
+TODO: search only for jpegs. could be done with glob
+'''
+
+jpeg_list = []
+for root, directories, files in os.walk(input_dir):
+    for name in files:
+        jpeg_list.append(os.path.join(root, name))
+print(jpeg_list) 
