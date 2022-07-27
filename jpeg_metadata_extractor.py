@@ -1,34 +1,49 @@
 from argparse import ArgumentParser
 import os
 import sys
-import glob
+from glob import glob
 import PIL.Image
 from PIL.ExifTags import TAGS
+from datetime import datetime
 
-def get_exif(fname):
+
+def get_desc_str(fname):
     img = PIL.Image.open(fname)
     exifdata = img.getexif()
     for tag_id in exifdata:
-        # get the tag name, instead of human unreadable tag id
+        # get the tag name
         tag = TAGS.get(tag_id, tag_id)
         data = exifdata.get(tag_id)
         # decode bytes 
         if isinstance(data, bytes):
             data = data.decode()
         if 'description' in tag.casefold():
-            print(tag)
-            print(data)
-        # print(f"{tag:25}: {data}")
-    return exifdata
+            desc = data.split(',')
+            break
+    return desc
 
 
-def corrected_gps_time_in_week_second(
-                           day_of_week,
-                           h, m, s,
-                           hardware_clock,
-                           last_pps_clock
-                           ):
-    gps_time_in_week_second = day_of_week*(60*60*24)+h*(60*60)+m*(60)+s
+def extract_datetime_info(file):
+    desc = get_desc_str(file)
+    day, month, year = desc[9], desc[10], desc[11]
+    hhmmss = desc[12]
+    dt = datetime.strptime('{}/{}/{} {}'.format(
+                    day, month, year[2:], 
+                    hhmmss.split('.')[0]), '%d/%m/%y %H:%M:%S'
+                    )
+    day_of_week = dt.weekday()
+    hh, mm, ss = [float(elem) for elem in hhmmss.split(':')]
+    hardware_clock = float(desc[27])/1000  # converting from ms to s
+    last_pps_clock = float(desc[28])/1000  # converting from ms to s
+    return day_of_week, hh, mm, ss, hardware_clock, last_pps_clock
+
+def calc_corr_gpstime(
+                day_of_week,
+                hh, mm, ss,
+                hardware_clock,
+                last_pps_clock
+                ):
+    gps_time_in_week_second = day_of_week*(60*60*24)+hh*(60*60)+mm*(60)+ss
     return hardware_clock - last_pps_clock + gps_time_in_week_second
 
 
@@ -47,36 +62,43 @@ args = parser.parse_args()
 input_dir = args.input
 output_dir = args.output
 
+if not os.path.exists(output_dir):
+    os.mkdir(output_dir)
+
 print('The input folder is: \t{}'.format(input_dir))
 print('The output folder is: \t{}'.format(output_dir))
 print()
 
 ext = 'jpeg'
-cam_nr = 6
 
-file_list = []
-for i in range(cam_nr):
-    file_list_cam = []
-    for root, directories, files in os.walk(os.path.join(input_dir,'CAM{}'.format(i+1))):
-        for name in files:
-            full_name = os.path.join(root, name)
-            if ext in full_name:
-                file_list_cam.append(full_name)
-    file_list.append(file_list_cam)
-
-for files_per_cam in file_list:
-    for i, im in enumerate(files_per_cam):
-        if i == 10:
+cams = glob(os.path.join(input_dir,'*/'), recursive = True)
+for cam in cams:
+    for elem in cam.split('/'):
+        if 'cam' in elem.casefold():
+            camname = elem
             break
-        print(im)
-        print('*'*80)
-        exif = get_exif(im)
 
-        print('*'*80)
-    break
-'''
-for full_path in file_list:
-    path_elements = full_path.split('/')
-'''
+    subs = glob(os.path.join(cam,'*/'), recursive = True)
+    for sub in subs:
+        files = glob(os.path.join(sub,'*.{}'.format(ext)))
 
-    
+        print('Currently working on {}'.format(sub.replace(input_dir,'')))
+        print('This folder contains {} jpeg files.'.format(len(files)))
+        print()
+                        
+        subname = sub.split('/')[-2]
+        outname = '{}_{}_imageList.csv'.format(
+                                   camname, subname
+                                   )
+        outfile = os.path.join(output_dir,outname)
+        with open(outfile, 'w') as out:
+            for i, file in enumerate(files):
+                day_of_week, hh, mm, ss, hw_cl, pps_cl = extract_datetime_info(file)
+                corr_gps_time = calc_corr_gpstime(day_of_week, hh, mm, ss, hw_cl, pps_cl)
+                path_in_input = file.replace(input_dir,'')
+                out.write('{};{}\n'.format(str(corr_gps_time),path_in_input))
+                if i%11 == 0:
+                    print('{:.1f} % done'.format(i/len(files)*100))
+                    
+        print('Finished working on {}'.format(sub.replace(input_dir,'')))
+        print('*'*80)
