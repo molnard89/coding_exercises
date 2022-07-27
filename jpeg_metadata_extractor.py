@@ -69,16 +69,28 @@ def calc_corr_gpstime(
     return hardware_clock - last_pps_clock + gps_time_in_week_second
 
 
-parser = ArgumentParser(description="""Loop over subdirectories and 
-                        jpeg files within to extract metadata and 
-                        do stuff with it.""")
+parser = ArgumentParser(description=
+                        """
+                        Loop over subdirectories and jpeg files within 
+                        to calculate their corrected GPS time of the 
+                        week in seconds using metadata found attached to 
+                        the jpegs. The values are written into txt files 
+                        in the user-specified output folder for each 
+                        subdirectory containing jpeg files.
+                        """
+                       )
 
 parser.add_argument("-i", "--input", required = True,
-                        help="Input directory to search for jpeg images.")
+                    help="Input directory to search for jpeg images."
+                    )
 
 parser.add_argument("-o", "--output", required = True,
-                        help="""Output directory to store csv files with
-                        data extracted from the jpeg images.""")
+                    help=
+                    """
+                    Output directory to store txt files with 
+                    data extracted from the jpeg images.
+                    """
+                   )
 
 args = parser.parse_args()
 input_dir = args.input
@@ -86,6 +98,7 @@ output_dir = args.output
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
+    print('Created output directory {}'.format(output_dir))
 
 print('The input folder is: \t{}'.format(input_dir))
 print('The output folder is: \t{}'.format(output_dir))
@@ -103,6 +116,8 @@ for cam in cams:
     subs = glob(os.path.join(cam,'*/'), recursive = True)
     for sub in subs:
         files = glob(os.path.join(sub,'*.{}'.format(ext)))
+        print('*'*80)
+
 
         print('Currently working on {}'.format(sub.replace(input_dir,'')))
         print('This folder contains {} jpeg files.'.format(len(files)))
@@ -123,4 +138,4 @@ for cam in cams:
                     print('{:.1f} % done'.format(i/len(files)*100))
                     
         print('Finished working on {}'.format(sub.replace(input_dir,'')))
-        print('*'*80)
+        print()
