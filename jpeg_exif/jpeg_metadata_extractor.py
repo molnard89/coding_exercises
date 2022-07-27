@@ -69,73 +69,75 @@ def calc_corr_gpstime(
     return hardware_clock - last_pps_clock + gps_time_in_week_second
 
 
-parser = ArgumentParser(description=
+if __name__ == "__main__":
+    
+    parser = ArgumentParser(description=
+                            """
+                            Loop over subdirectories and jpeg files within 
+                            to calculate their corrected GPS time of the 
+                            week in seconds using metadata found attached to 
+                            the jpegs. The values are written into txt files 
+                            in the user-specified output folder for each 
+                            subdirectory containing jpeg files.
+                            """
+                           )
+
+    parser.add_argument("-i", "--input", required = True,
+                        help="Input directory to search for jpeg images."
+                        )
+
+    parser.add_argument("-o", "--output", required = True,
+                        help=
                         """
-                        Loop over subdirectories and jpeg files within 
-                        to calculate their corrected GPS time of the 
-                        week in seconds using metadata found attached to 
-                        the jpegs. The values are written into txt files 
-                        in the user-specified output folder for each 
-                        subdirectory containing jpeg files.
+                        Output directory to store txt files with 
+                        data extracted from the jpeg images.
                         """
                        )
+    
+    args = parser.parse_args()
+    input_dir = args.input
+    output_dir = args.output
 
-parser.add_argument("-i", "--input", required = True,
-                    help="Input directory to search for jpeg images."
-                    )
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+        print('Created output directory {}'.format(output_dir))
 
-parser.add_argument("-o", "--output", required = True,
-                    help=
-                    """
-                    Output directory to store txt files with 
-                    data extracted from the jpeg images.
-                    """
-                   )
+    print('The input folder is: \t{}'.format(input_dir))
+    print('The output folder is: \t{}'.format(output_dir))
+    print()
 
-args = parser.parse_args()
-input_dir = args.input
-output_dir = args.output
+    ext = 'jpeg'
 
-if not os.path.exists(output_dir):
-    os.mkdir(output_dir)
-    print('Created output directory {}'.format(output_dir))
+    cams = glob(os.path.join(input_dir,'*/'), recursive = True)
+    for cam in cams:
+        for elem in cam.split('/'):
+            if 'cam' in elem.casefold():
+                camname = elem
+                break
 
-print('The input folder is: \t{}'.format(input_dir))
-print('The output folder is: \t{}'.format(output_dir))
-print()
-
-ext = 'jpeg'
-
-cams = glob(os.path.join(input_dir,'*/'), recursive = True)
-for cam in cams:
-    for elem in cam.split('/'):
-        if 'cam' in elem.casefold():
-            camname = elem
-            break
-
-    subs = glob(os.path.join(cam,'*/'), recursive = True)
-    for sub in subs:
-        files = glob(os.path.join(sub,'*.{}'.format(ext)))
-        print('*'*80)
+        subs = glob(os.path.join(cam,'*/'), recursive = True)
+        for sub in subs:
+            files = glob(os.path.join(sub,'*.{}'.format(ext)))
+            print('*'*80)
 
 
-        print('Currently working on {}'.format(sub.replace(input_dir,'')))
-        print('This folder contains {} jpeg files.'.format(len(files)))
-        print()
-                        
-        subname = sub.split('/')[-2]
-        outname = '{}_{}_imageList.csv'.format(
-                                   camname, subname
-                                   )
-        outfile = os.path.join(output_dir,outname)
-        with open(outfile, 'w') as out:
-            for i, file in enumerate(files):
-                day_of_week, hh, mm, ss, hw_cl, pps_cl = extract_datetime_info(file)
-                corr_gps_time = calc_corr_gpstime(day_of_week, hh, mm, ss, hw_cl, pps_cl)
-                path_in_input = file.replace(input_dir,'')
-                out.write('{};{}\n'.format(str(corr_gps_time),path_in_input))
-                if i%11 == 0:
-                    print('{:.1f} % done'.format(i/len(files)*100))
-                    
-        print('Finished working on {}'.format(sub.replace(input_dir,'')))
-        print()
+            print('Currently working on {}'.format(sub.replace(input_dir,'')))
+            print('This folder contains {} jpeg files.'.format(len(files)))
+            print()
+
+            subname = sub.split('/')[-2]
+            outname = '{}_{}_imageList.csv'.format(
+                                       camname, subname
+                                       )
+            outfile = os.path.join(output_dir,outname)
+            with open(outfile, 'w') as out:
+                for i, file in enumerate(files):
+                    day_of_week, hh, mm, ss, hw_cl, pps_cl = extract_datetime_info(file)
+                    corr_gps_time = calc_corr_gpstime(day_of_week, hh, mm, ss, hw_cl, pps_cl)
+                    path_in_input = file.replace(input_dir,'')
+                    out.write('{};{}\n'.format(str(corr_gps_time),path_in_input))
+                    if i%11 == 0:
+                        print('{:.1f} % done'.format(i/len(files)*100))
+
+            print('Finished working on {}'.format(sub.replace(input_dir,'')))
+            print()
