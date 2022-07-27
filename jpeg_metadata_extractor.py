@@ -8,6 +8,11 @@ from datetime import datetime
 
 
 def get_desc_str(fname):
+    '''
+    Extracting the "description" field of the jpeg for 
+    further processing.
+    '''
+    
     img = PIL.Image.open(fname)
     exifdata = img.getexif()
     for tag_id in exifdata:
@@ -24,6 +29,13 @@ def get_desc_str(fname):
 
 
 def extract_datetime_info(file):
+    '''
+    Collecting the date and time information of a given jpeg
+    from its "description" field. These are needed for calculating
+    the corrected GPS time of the week in seconds. 
+    Specific fields were selected according to the documentation.
+    '''
+    
     desc = get_desc_str(file)
     day, month, year = desc[9], desc[10], desc[11]
     hhmmss = desc[12]
@@ -31,11 +43,12 @@ def extract_datetime_info(file):
                     day, month, year[2:], 
                     hhmmss.split('.')[0]), '%d/%m/%y %H:%M:%S'
                     )
-    day_of_week = dt.weekday()
+    day_of_week = dt.isoweekday()%7 #isoweekday() assigns 7 to Sunday
     hh, mm, ss = [float(elem) for elem in hhmmss.split(':')]
     hardware_clock = float(desc[27])/1000  # converting from ms to s
     last_pps_clock = float(desc[28])/1000  # converting from ms to s
     return day_of_week, hh, mm, ss, hardware_clock, last_pps_clock
+
 
 def calc_corr_gpstime(
                 day_of_week,
@@ -43,6 +56,15 @@ def calc_corr_gpstime(
                 hardware_clock,
                 last_pps_clock
                 ):
+    '''
+    Calculate the corrected GPS time of the week in
+    seconds according to
+    CorrectedGPSTimeInSeconds = hardwareClock - lastPPSclock + GPSTimeInWeek,
+    where
+    GPSTimeInWeek = DayOfWeek*(60*60*24)+hh*(60*60)+mm*60+ss
+    and DayOfWeek is 0 for Sunday, 1 for Mon, 2 for Tue, 3 for Wed, etc.
+    '''
+    
     gps_time_in_week_second = day_of_week*(60*60*24)+hh*(60*60)+mm*(60)+ss
     return hardware_clock - last_pps_clock + gps_time_in_week_second
 
